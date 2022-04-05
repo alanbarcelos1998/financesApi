@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/gorilla/mux"
 )
@@ -16,6 +17,10 @@ type FixedExpenses struct {
 	ValueExpense float64 `json:"value"`
 	DueDate      string  `json:"duedate"`
 	PayDate      string  `json:"paydate"`
+}
+
+type ResponseErr struct {
+	Erro string `json:"erro"`
 }
 
 func listFixedExpenses(w http.ResponseWriter, r *http.Request) {
@@ -49,6 +54,15 @@ func listFixedExpenses(w http.ResponseWriter, r *http.Request) {
 	encoder.Encode(fixedExpenses)
 }
 
+func validate(fixedExpenses FixedExpenses) string {
+	if len(fixedExpenses.NameExpense) == 0 || len(fixedExpenses.NameExpense) > 50 {
+		return "O campo Autor precisa ter o mínimo de 1 caractere e máximo de 50 caracteres!"
+	}
+
+	// Não houve erro de validação
+	return ""
+}
+
 func addFixedExpense(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -58,6 +72,14 @@ func addFixedExpense(w http.ResponseWriter, r *http.Request) {
 
 	var newFixedExpense FixedExpenses
 	json.Unmarshal(body, &newFixedExpense)
+
+	// validate
+	errValidate := validate(newFixedExpense)
+	if len(errValidate) > 0 {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		json.NewEncoder(w).Encode(ResponseErr{errValidate})
+		return
+	}
 
 	// insert in database
 	result, errInsert := db2.Db.Exec("INSERT INTO fixed_expenses (name_expense,value_expense,due_date,pay_date) VALUES (?,?,?,?)", newFixedExpense.NameExpense, newFixedExpense.ValueExpense, newFixedExpense.DueDate, newFixedExpense.PayDate)
@@ -77,8 +99,85 @@ func addFixedExpense(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func alterFixedExpense(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id, err := strconv.Atoi(vars["idfixed"])
+
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+	}
+
+	bodycap, errBody := ioutil.ReadAll(r.Body)
+
+	if errBody != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	var alterFixed FixedExpenses
+	errJson := json.Unmarshal(bodycap, &alterFixed)
+
+	if errJson != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	register := db2.Db.QueryRow("SELECT idfixed, name_expense, value_expense, due_date, pay_date FROM fixed_expenses WHERE idfixed = ?", id)
+	var fixedExpense FixedExpenses
+	errScan := register.Scan(&fixedExpense.Idfixed, &fixedExpense.NameExpense, &fixedExpense.ValueExpense, &fixedExpense.DueDate, &fixedExpense.PayDate)
+
+	if errScan != nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	_, errExec := db2.Db.Exec("UPDATE fixed_expenses SET name_expense = ?, value_expense = ?, due_date = ?, pay_date = ? WHERE idfixed = ?", alterFixed.NameExpense, alterFixed.ValueExpense, alterFixed.DueDate, alterFixed.PayDate, id)
+
+	if errExec != nil {
+		log.Println("AlterFixedExpense: errExec: " + errExec.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(alterFixed)
+}
+
+func deleteFixed(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id, err := strconv.Atoi(vars["idfixed"])
+
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	register := db2.Db.QueryRow("SELECT idfixed FROM fixed_expenses WHERE idfixed = ?", id)
+	var idOfExpense int
+	errScan := register.Scan(&idOfExpense)
+
+	if errScan != nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	_, errExec := db2.Db.Exec("DELETE FROM fixed_expenses WHERE idfixed = ?", id)
+
+	if errExec != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// func test(w http.ResponseWriter, r *http.Request) {
+// 	fmt.Fprint(w, "teste")
+// }
+
 func ConfigRoute(router *mux.Router) {
 	// router.HandleFunc("/", test)
 	router.HandleFunc("/fixedexpenses", listFixedExpenses).Methods("GET")
-	router.HandleFunc("/fixedexpenses", addFixedExpense).Methods("POST")
+	router.HandleFunc("/addfixedexpense", addFixedExpense).Methods("POST")
+	router.HandleFunc("/fixedexpenses/{idfixed}", alterFixedExpense).Methods("PUT")
+	router.HandleFunc("/fixedexpenses/{idfixed}", deleteFixed).Methods("DELETE")
 }
