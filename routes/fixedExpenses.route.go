@@ -20,7 +20,7 @@ type FixedExpenses struct {
 	ValueExpense float64 `json:"value"`
 	DueDate      string  `json:"duedate"`
 	PayDate      string  `json:"paydate"`
-	DateCurrent  string  `json:"datecurrent"`
+	DateRegister string  `json:"dateregister"`
 }
 
 type ResponseErr struct {
@@ -39,7 +39,7 @@ func listFixedExpenses(w http.ResponseWriter, r *http.Request) {
 	var fixedExpenses []FixedExpenses = make([]FixedExpenses, 0)
 	for registers.Next() {
 		var fixedExpense FixedExpenses
-		errScan := registers.Scan(&fixedExpense.Idfixed, &fixedExpense.NameExpense, &fixedExpense.ValueExpense, &fixedExpense.DueDate, &fixedExpense.PayDate, &fixedExpense.DateCurrent)
+		errScan := registers.Scan(&fixedExpense.Idfixed, &fixedExpense.NameExpense, &fixedExpense.ValueExpense, &fixedExpense.DueDate, &fixedExpense.PayDate, &fixedExpense.DateRegister)
 		if errScan != nil {
 			log.Println("FixedExepenses: errScan: " + errScan.Error())
 			continue
@@ -86,7 +86,7 @@ func addFixedExpense(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// insert in database
-	result, errInsert := db2.Db.Exec("INSERT INTO fixed_expenses (name_expense,value_expense,due_date,pay_date, date_current) VALUES (?,?,?,?,?)", newFixedExpense.NameExpense, newFixedExpense.ValueExpense, newFixedExpense.DueDate, newFixedExpense.PayDate, newFixedExpense.DateCurrent)
+	result, errInsert := db2.Db.Exec("INSERT INTO fixed_expenses (name_expense,value_expense,due_date,pay_date, date_current) VALUES (?,?,?,?,?)", newFixedExpense.NameExpense, newFixedExpense.ValueExpense, newFixedExpense.DueDate, newFixedExpense.PayDate, newFixedExpense.DateRegister)
 
 	idGenerated, errLastInsertId := result.LastInsertId()
 
@@ -128,14 +128,14 @@ func alterFixedExpense(w http.ResponseWriter, r *http.Request) {
 
 	register := db2.Db.QueryRow("SELECT idfixed, name_expense, value_expense, due_date, pay_date FROM fixed_expenses WHERE idfixed = ?", id)
 	var fixedExpense FixedExpenses
-	errScan := register.Scan(&fixedExpense.Idfixed, &fixedExpense.NameExpense, &fixedExpense.ValueExpense, &fixedExpense.DueDate, &fixedExpense.PayDate, &fixedExpense.DateCurrent)
+	errScan := register.Scan(&fixedExpense.Idfixed, &fixedExpense.NameExpense, &fixedExpense.ValueExpense, &fixedExpense.DueDate, &fixedExpense.PayDate, &fixedExpense.DateRegister)
 
 	if errScan != nil {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
-	_, errExec := db2.Db.Exec("UPDATE fixed_expenses SET name_expense = ?, value_expense = ?, due_date = ?, pay_date = ?, date_current = ? WHERE idfixed = ?", alterFixed.NameExpense, alterFixed.ValueExpense, alterFixed.DueDate, alterFixed.PayDate, alterFixed.DateCurrent, id)
+	_, errExec := db2.Db.Exec("UPDATE fixed_expenses SET name_expense = ?, value_expense = ?, due_date = ?, pay_date = ?, date_current = ? WHERE idfixed = ?", alterFixed.NameExpense, alterFixed.ValueExpense, alterFixed.DueDate, alterFixed.PayDate, alterFixed.DateRegister, id)
 
 	if errExec != nil {
 		log.Println("AlterFixedExpense: errExec: " + errExec.Error())
@@ -176,10 +176,9 @@ func deleteFixed(w http.ResponseWriter, r *http.Request) {
 
 func filterDate(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	id, _ := strconv.Atoi(vars["datecurrent"])
-	// id := vars["datecurrent"]
+	id, _ := strconv.Atoi(vars["dateregister"])
 
-	registers, errSelect := db2.Db.Query("SELECT * FROM fixed_expenses WHERE date_current = ?", id)
+	registers, errSelect := db2.Db.Query("SELECT * FROM fixed_expenses WHERE date_register = ?", id)
 
 	if errSelect != nil {
 		log.Println("fixed_expenses: " + errSelect.Error())
@@ -192,7 +191,7 @@ func filterDate(w http.ResponseWriter, r *http.Request) {
 
 	for registers.Next() {
 		var fixedExpense FixedExpenses
-		errScan := registers.Scan(&fixedExpense.Idfixed, &fixedExpense.NameExpense, &fixedExpense.ValueExpense, &fixedExpense.DueDate, &fixedExpense.PayDate, &fixedExpense.DateCurrent)
+		errScan := registers.Scan(&fixedExpense.Idfixed, &fixedExpense.NameExpense, &fixedExpense.ValueExpense, &fixedExpense.DueDate, &fixedExpense.PayDate, &fixedExpense.DateRegister)
 		if errScan != nil {
 			log.Println("FixedExepenses: errScan: " + errScan.Error())
 			continue
@@ -213,27 +212,6 @@ func filterDate(w http.ResponseWriter, r *http.Request) {
 		log.Println("filter date: errCloseRegisters: " + errCloseRegisters.Error())
 	}
 
-	// errScan := register.Scan(&fixedExpense.Idfixed, &fixedExpense.NameExpense, &fixedExpense.ValueExpense, &fixedExpense.DueDate, &fixedExpense.PayDate, &fixedExpense.DateCurrent)
-
-	// if errScan != nil {
-	// 	log.Println("filterDate: errScan: " + errScan.Error())
-	// 	w.WriteHeader(http.StatusNotFound)
-	// 	return
-	// }
-
 	encoder := json.NewEncoder(w)
 	encoder.Encode(fixedExpenses)
-}
-
-// func test(w http.ResponseWriter, r *http.Request) {
-// 	fmt.Fprint(w, "teste")
-// }
-
-func ConfigRoute(router *mux.Router) {
-	// router.HandleFunc("/", test)
-	router.HandleFunc("/fixedexpenses", listFixedExpenses).Methods("GET")
-	router.HandleFunc("/addfixedexpense", addFixedExpense).Methods("POST")
-	router.HandleFunc("/fixedexpenses/{idfixed}", alterFixedExpense).Methods("PUT")
-	router.HandleFunc("/fixedexpenses/{idfixed}", deleteFixed).Methods("DELETE")
-	router.HandleFunc("/fixedexpensesdate/{datecurrent}", filterDate).Methods("GET")
 }
