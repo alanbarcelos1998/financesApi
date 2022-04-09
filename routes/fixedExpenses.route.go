@@ -1,7 +1,6 @@
 package routes
 
 import (
-	"context"
 	"encoding/json"
 	db2 "financasApi/db"
 	"io/ioutil"
@@ -12,8 +11,6 @@ import (
 	"github.com/gorilla/mux"
 )
 
-var ctx context.Context
-
 type FixedExpenses struct {
 	Idfixed      int     `json:"id"`
 	NameExpense  string  `json:"name"`
@@ -21,10 +18,6 @@ type FixedExpenses struct {
 	DueDate      string  `json:"duedate"`
 	PayDate      string  `json:"paydate"`
 	DateRegister string  `json:"dateregister"`
-}
-
-type ResponseErr struct {
-	Erro string `json:"erro"`
 }
 
 func listFixedExpenses(w http.ResponseWriter, r *http.Request) {
@@ -58,7 +51,7 @@ func listFixedExpenses(w http.ResponseWriter, r *http.Request) {
 	encoder.Encode(fixedExpenses)
 }
 
-func validate(fixedExpenses FixedExpenses) string {
+func validateFixed(fixedExpenses FixedExpenses) string {
 	if len(fixedExpenses.NameExpense) == 0 || len(fixedExpenses.NameExpense) > 50 {
 		return "O campo Autor precisa ter o mínimo de 1 caractere e máximo de 50 caracteres!"
 	}
@@ -78,7 +71,7 @@ func addFixedExpense(w http.ResponseWriter, r *http.Request) {
 	json.Unmarshal(body, &newFixedExpense)
 
 	// validate
-	errValidate := validate(newFixedExpense)
+	errValidate := validateFixed(newFixedExpense)
 	if len(errValidate) > 0 {
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		json.NewEncoder(w).Encode(ResponseErr{errValidate})
@@ -86,7 +79,7 @@ func addFixedExpense(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// insert in database
-	result, errInsert := db2.Db.Exec("INSERT INTO fixed_expenses (name_expense,value_expense,due_date,pay_date, date_current) VALUES (?,?,?,?,?)", newFixedExpense.NameExpense, newFixedExpense.ValueExpense, newFixedExpense.DueDate, newFixedExpense.PayDate, newFixedExpense.DateRegister)
+	result, errInsert := db2.Db.Exec("INSERT INTO fixed_expenses (name_expense,value_expense,due_date,pay_date, date_register) VALUES (?,?,?,?,?)", newFixedExpense.NameExpense, newFixedExpense.ValueExpense, newFixedExpense.DueDate, newFixedExpense.PayDate, newFixedExpense.DateRegister)
 
 	idGenerated, errLastInsertId := result.LastInsertId()
 
@@ -174,7 +167,7 @@ func deleteFixed(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func filterDate(w http.ResponseWriter, r *http.Request) {
+func filterFixedDate(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, _ := strconv.Atoi(vars["dateregister"])
 
