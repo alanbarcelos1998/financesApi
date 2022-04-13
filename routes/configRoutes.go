@@ -7,17 +7,11 @@ type ResponseErr struct {
 }
 
 func ConfigRoute(router *mux.Router) {
-	// Fixed Expenses Routes
-	router.HandleFunc("/fixedexpensesdate/{dateregister}", filterFixedDate).Methods("GET")
-	router.HandleFunc("/fixedexpenses", listFixedExpenses).Methods("GET")
-	router.HandleFunc("/addfixedexpense", addFixedExpense).Methods("POST")
-	router.HandleFunc("/fixedexpenses/{idfixed}", alterFixedExpense).Methods("PUT")
-	router.HandleFunc("/fixedexpenses/{idfixed}", deleteFixed).Methods("DELETE")
+	//Expenses Routes
+	router.HandleFunc("/expense/{date}", filterDate).Methods("GET")
+	router.HandleFunc("/expense", listExpenses).Methods("GET")
+	router.HandleFunc("/expense", cadExpense).Methods("POST")
+	router.HandleFunc("/expense/{id}", alterExpense).Methods("PUT")
+	router.HandleFunc("/expense/{id}", delete).Methods("DELETE")
 
-	// Variable Expenses Routes
-	router.HandleFunc("/variableexpensesdate/{dateregister}", filterVariableDate).Methods("GET")
-	router.HandleFunc("/variableexpenses", listVariableExpenses).Methods("GET")
-	router.HandleFunc("/addvariableexpense", addVariableExpense).Methods("POST")
-	router.HandleFunc("/variableexpenses/{idvariable}", alterVariableExpense).Methods("PUT")
-	router.HandleFunc("/variableexpenses/{idvariable}", deleteVariable).Methods("DELETE")
 }
